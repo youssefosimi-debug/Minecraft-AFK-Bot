@@ -1,66 +1,63 @@
-const mineflayer = require('mineflayer');
-const config = require('./config.json');
+const bedrock = require('bedrock-protocol');
+const fs = require('fs');
 
-const bot = mineflayer.createBot({
-  host: config.serverHost,
-  port: config.serverPort,
-  username: config.botUsername,
-  auth: 'offline',
-  version: false,
-  viewDistance: config.botChunk
-});
+// Read config from config.json
+const config = JSON.parse(fs.readFileSync('config.json', 'utf8'));
 
-let movementPhase = 0;
-const STEP_INTERVAL = 1500;
-const STEP_SPEED    = 1;
-const JUMP_DURATION = 500;
+function createBot() {
+    console.log("Connecting to Minecraft Bedrock server...");
+    
+    const bot = bedrock.createClient({
+        host: config.serverHost,
+        port: config.serverPort,
+        username: config.botUsername || "AFK_Bot",
+        offline: true
+    });
 
-bot.on('spawn', () => {
-  setTimeout(() => {
-    bot.setControlState('sneak', true);
-    console.log(`✅ ${config.botUsername} is Ready!`);
-  }, 3000);
+    let moveInterval;
 
-  setTimeout(movementCycle, STEP_INTERVAL);
-});
+    bot.on('spawn', () => {
+        console.log("Bot has successfully joined the server!");
 
-function movementCycle() {
-  if (!bot.entity) return;
+        // Start random movement system every 3 seconds to prevent AFK kick
+        moveInterval = setInterval(() => {
+            if (!bot.write) return; // Check if bot is still connected
 
-  switch (movementPhase) {
-    case 0:
-      bot.setControlState('forward', true);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-    case 1:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', true);
-      bot.setControlState('jump', false);
-      break;
-    case 2:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', true);
-      setTimeout(() => {
-        bot.setControlState('jump', false);
-      }, JUMP_DURATION);
-      break;
-    case 3:
-      bot.setControlState('forward', false);
-      bot.setControlState('back', false);
-      bot.setControlState('jump', false);
-      break;
-  }
+            // Generate random movements for the bot
+            const isMovingForward = Math.random() > 0.5;
+            const isJumping = Math.random() > 0.7;
+            const isSneaking = Math.random() > 0.8;
 
-  movementPhase = (movementPhase + 1) % 4;
+            // Send movement data to the server
+            bot.write('player_auth_input', {
+                pitch: 0,
+                yaw: Math.random() * 360, // Rotate randomly
+                position: { x: 0, y: 0, z: 0 },
+                move_vector: { x: isMovingForward ? 1 : 0, z: 0 },
+                input_data: {
+                    jumper: isJumping,
+                    sneaker: isSneaking,
+                    moving: isMovingForward
+                },
+                input_mode: 'mouse',
+                play_mode: 'normal',
+                tick: 0n
+            });
 
-  setTimeout(movementCycle, STEP_INTERVAL);
+            console.log(Bot Actions -> Moving: ${isMovingForward}, Jumping: ${isJumping}, Sneaking: ${isSneaking});
+        }, 3000);
+    });
+
+    bot.on('close', () => {
+        console.log("Connection lost. Reconnecting in 30 seconds...");
+        clearInterval(moveInterval); // Stop interval on disconnect
+        setTimeout(createBot, 30000);
+    });
+
+    bot.on('error', (err) => {
+        console.log("Connection error: ", err.message);
+        clearInterval(moveInterval);
+    });
 }
 
-bot.on('error', (err) => {
-  console.error('⚠️ Error:', err);
-});
-bot.on('end', () => {
-  console.log('⛔️ Bot Disconnected!');
-});
+createBot();
