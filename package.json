@@ -3,11 +3,11 @@
   "version": "1.0.0",
   "description": "Minecraft Bedrock AFK Bot for Render",
   "main": "bot.js",
-  "dependencies": {
-    "mineflayer": "^4.22.0",
-    "bedrock-protocol": "^3.5.0",
-  },
   "scripts": {
     "start": "node bot.js"
+  },
+  "dependencies": {
+    "mineflayer": "^4.22.0",
+    "bedrock-protocol": "^3.5.0"
   }
-  
+}
